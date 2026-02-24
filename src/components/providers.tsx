@@ -5,6 +5,12 @@ import { useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useRealtimeNotifications } from "@/hooks/use-notifications";
+
+function GlobalRealtimeHooks() {
+  useRealtimeNotifications();
+  return null;
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,6 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           {children}
+          <GlobalRealtimeHooks />
           <Toaster richColors position="top-right" />
         </TooltipProvider>
       </QueryClientProvider>

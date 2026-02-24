@@ -203,6 +203,8 @@ CREATE TRIGGER on_auth_user_created
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.project_members;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.project_activities;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 
 
 -- =====================
