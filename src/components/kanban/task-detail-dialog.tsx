@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { MarkdownEditor } from "@/components/markdown-editor";
+import { MarkdownViewer } from "@/components/markdown-viewer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -24,8 +26,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { useUpdateTask, useDeleteTask } from "@/hooks/use-tasks";
+import { useUpdateTask, useDeleteTask, useTasks } from "@/hooks/use-tasks";
 import { useComments, useAddComment, useRealtimeComments } from "@/hooks/use-comments";
+import { useTaskDependencies, useRealtimeDependencies, useAddDependency, useRemoveDependency } from "@/hooks/use-dependencies";
 import type { TaskWithAssignee, TaskStatus, Profile } from "@/lib/types";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { toast } from "sonner";
@@ -38,6 +41,7 @@ interface TaskDetailDialogProps {
   onClose: () => void;
   projectId: string;
   members: { profile?: Profile | null }[];
+  currentUserId?: string;
 }
 
 export function TaskDetailDialog({
@@ -46,6 +50,7 @@ export function TaskDetailDialog({
   onClose,
   projectId,
   members,
+  currentUserId,
 }: TaskDetailDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -62,6 +67,23 @@ export function TaskDetailDialog({
 
   const { data: comments = [] } = useComments(task?.id || "");
   useRealtimeComments(task?.id || "");
+
+  // Fetch all tasks for dependency dropdown
+  const { data: allTasks = [] } = useTasks(projectId);
+  const { data: dependencies = [] } = useTaskDependencies(projectId);
+  useRealtimeDependencies(projectId);
+
+  const addDependency = useAddDependency();
+  const removeDependency = useRemoveDependency();
+
+  // Filter dependencies for this task
+  const myDependencies = dependencies.filter(d => d.task_id === task?.id);
+  
+  // Available tasks to depend on
+  const availableTasksToDependOn = allTasks.filter(t => 
+    t.id !== task?.id && 
+    !myDependencies.some(d => d.depends_on_task_id === t.id)
+  );
 
   useEffect(() => {
     if (commentsEndRef.current) {
@@ -171,20 +193,19 @@ export function TaskDetailDialog({
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Deskripsi</Label>
+            <div className="space-y-1.5 w-full">
+              <Label className="text-xs text-muted-foreground block mb-2">Deskripsi</Label>
               {isEditing ? (
-                <Textarea
+                <MarkdownEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="bg-white/5 border-white/10 rounded-xl resize-none"
-                  rows={2}
+                  onChange={setDescription}
                   placeholder="Tambahkan deskripsi..."
+                  minHeight="min-h-[150px]"
                 />
               ) : (
-                <p className="text-sm text-muted-foreground cursor-pointer" onClick={() => setIsEditing(true)}>
-                  {task.description || "Tidak ada deskripsi"}
-                </p>
+                <div onClick={() => setIsEditing(true)} className="cursor-pointer bg-black/10 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
+                  <MarkdownViewer content={task.description} />
+                </div>
               )}
             </div>
 
@@ -192,7 +213,11 @@ export function TaskDetailDialog({
             {isEditing && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+                <Select 
+                  value={status} 
+                  onValueChange={(v) => setStatus(v as TaskStatus)}
+                  disabled={task.assigned_to !== null && task.assigned_to !== currentUserId}
+                >
                   <SelectTrigger className="bg-white/5 border-white/10 rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
@@ -202,6 +227,14 @@ export function TaskDetailDialog({
                     <SelectItem value="done">✅ Selesai</SelectItem>
                   </SelectContent>
                 </Select>
+                {task.assigned_to && task.assigned_to !== currentUserId && (
+                  <p className="text-[10px] text-amber-500/80 mt-1 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Hanya pengguna yang ditugaskan yang dapat mengubah status.
+                  </p>
+                )}
               </div>
             )}
 
@@ -222,6 +255,81 @@ export function TaskDetailDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Task Dependencies */}
+            {isEditing && (
+              <div className="space-y-1.5 overflow-hidden">
+                <Label className="text-xs text-muted-foreground">Menunggu Tugas (Blokir)</Label>
+                
+                {myDependencies.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {myDependencies.map(dep => (
+                      <Badge key={dep.id} variant="secondary" className="flex items-center gap-1 bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20 max-w-full">
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span className="truncate max-w-[150px]" title={dep.blocking_task?.title}>{dep.blocking_task?.title}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-4 w-4 ml-1 rounded-full hover:bg-red-500/20 shrink-0"
+                          onClick={() => removeDependency.mutate({ id: dep.id, projectId })}
+                          disabled={removeDependency.isPending}
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                
+                <Select
+                  onValueChange={(val) => {
+                    if (task && val && val !== "none") {
+                      addDependency.mutate({
+                        projectId,
+                        taskId: task.id,
+                        dependsOnTaskId: val
+                      });
+                    }
+                  }}
+                  value=""
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 rounded-xl">
+                    <SelectValue placeholder="Tambahkan tugas yang memblokir..." />
+                  </SelectTrigger>
+                  <SelectContent className="glass-solid border-white/10 rounded-xl max-w-[300px]">
+                    {availableTasksToDependOn.length === 0 ? (
+                      <SelectItem value="none" disabled>Tidak ada tugas lain</SelectItem>
+                    ) : (
+                      availableTasksToDependOn.map(t => (
+                        <SelectItem key={t.id} value={t.id} className="truncate">{t.title}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* View Mode Dependencies */}
+            {!isEditing && myDependencies.length > 0 && (
+              <div className="space-y-1.5 overflow-hidden">
+                <Label className="text-xs text-red-400 flex items-center gap-1">
+                  <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Diblokir oleh:
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {myDependencies.map(dep => (
+                    <Badge key={dep.id} variant="outline" className="border-red-500/30 text-red-400 bg-red-500/5 cursor-help max-w-full" title={dep.blocking_task?.status === 'done' ? 'Tugas Selesai' : 'Tugas Belum Selesai'}>
+                      <span className="truncate max-w-[200px]">{dep.blocking_task?.title}</span>
+                      {dep.blocking_task?.status === 'done' && <span className="ml-1 text-emerald-400 shrink-0">✅</span>}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
 

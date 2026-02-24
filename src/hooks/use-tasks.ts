@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useLogActivity } from "@/hooks/use-activities";
 import type { TaskWithAssignee, TaskStatus } from "@/lib/types";
 
 export function useTasks(projectId: string) {
@@ -31,6 +32,7 @@ export function useTasks(projectId: string) {
 export function useCreateTask() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const logActivity = useLogActivity();
 
   return useMutation({
     mutationFn: async ({
@@ -80,9 +82,16 @@ export function useCreateTask() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["tasks", variables.projectId],
+      });
+      // Fire and forget log activity
+      logActivity.mutate({
+        projectId: variables.projectId,
+        action: "create_task",
+        targetId: data?.id,
+        targetName: variables.title,
       });
     },
   });
@@ -91,6 +100,7 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const logActivity = useLogActivity();
 
   return useMutation({
     mutationFn: async ({
@@ -191,12 +201,35 @@ export function useUpdateTask() {
         queryKey: ["tasks", variables.projectId],
       });
     },
+    onSuccess: (data, variables, context) => {
+      // Menentukan aksi spesifik: move atau sekadar update
+      if (data && context?.previousTasks) {
+        const prevTask = context.previousTasks.find(t => t.id === variables.taskId);
+        if (prevTask && prevTask.status !== data.status) {
+           logActivity.mutate({
+            projectId: variables.projectId,
+            action: "move_task",
+            targetId: data.id,
+            targetName: data.title,
+            details: { from: prevTask.status, to: data.status }
+          });
+        } else {
+           logActivity.mutate({
+            projectId: variables.projectId,
+            action: "update_task",
+            targetId: data.id,
+            targetName: data.title,
+          });
+        }
+      }
+    }
   });
 }
 
 export function useDeleteTask() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const logActivity = useLogActivity();
 
   return useMutation({
     mutationFn: async ({
@@ -206,16 +239,27 @@ export function useDeleteTask() {
       taskId: string;
       projectId: string;
     }) => {
+      // Fetch the task title first so we can log its name
+      const { data: task } = await supabase.from('tasks').select('title').eq('id', taskId).single();
+
       const { error } = await supabase
         .from("tasks")
         .delete()
         .eq("id", taskId);
 
       if (error) throw error;
+      return { taskId, title: task?.title || 'Unknown Task' };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["tasks", variables.projectId],
+        queryKey: ["tasks", variables.projectId], // this should be variables.projectId but we don't have projectId if we don't return it
+      });
+
+      logActivity.mutate({
+        projectId: variables.projectId,
+        action: "delete_task",
+        targetId: data.taskId,
+        targetName: data.title,
       });
     },
   });

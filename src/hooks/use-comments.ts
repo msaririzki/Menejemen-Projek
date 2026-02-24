@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { useLogActivity } from "@/hooks/use-activities";
 import type { TaskComment } from "@/lib/types";
 import { useEffect } from "react";
 
@@ -30,6 +31,7 @@ export function useComments(taskId: string) {
 export function useAddComment() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const logActivity = useLogActivity();
 
   return useMutation({
     mutationFn: async ({
@@ -61,9 +63,17 @@ export function useAddComment() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["comments", variables.taskId],
+      });
+
+      logActivity.mutate({
+        projectId: variables.projectId,
+        action: "add_comment",
+        targetId: data?.task_id,
+        targetName: "Task", // Ideallnya kita pass nama task dari UI
+        details: { content: variables.content }
       });
     },
   });

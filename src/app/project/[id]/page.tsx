@@ -10,11 +10,15 @@ import { KanbanBoard } from "@/components/kanban/board";
 import { TaskFiltersBar, type TaskFilters } from "@/components/kanban/task-filters";
 import { OnlineAvatars } from "@/components/online-avatars";
 import { NotificationBell } from "@/components/notification-bell";
+import { ActivityTimeline } from "@/components/activity-timeline";
+import { NavbarMotivation } from "@/components/navbar-motivation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTasks } from "@/hooks/use-tasks";
 import { useProjectMembers, useCurrentUser } from "@/hooks/use-members";
 import { useRealtimeTasks, useRealtimeMembers, useOnlinePresence } from "@/hooks/use-realtime";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { Project } from "@/lib/types";
 
 export default function ProjectWorkspacePage() {
@@ -107,10 +111,15 @@ export default function ProjectWorkspacePage() {
             </div>
           </div>
 
+          {/* Center (Motivational Marquee) */}
+          <NavbarMotivation />
+
           {/* Right */}
           <div className="flex items-center gap-2.5">
             {/* Online Members */}
             {!membersLoading && <OnlineAvatars members={members} />}
+
+            <ThemeToggle />
 
             {/* Notification Bell */}
             <NotificationBell />
@@ -153,34 +162,60 @@ export default function ProjectWorkspacePage() {
           </Badge>
         </motion.div>
 
-        {/* Filter Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-5"
-        >
-          <TaskFiltersBar
-            filters={filters}
-            onFiltersChange={setFilters}
-            members={members}
-          />
-        </motion.div>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="kanban" className="w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
+            <TabsList className="bg-white/5 border border-white/10 rounded-xl h-10 p-1">
+              <TabsTrigger value="kanban" className="rounded-lg text-xs data-[state=active]:bg-white/10">
+                Papan Kanban
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="rounded-lg text-xs data-[state=active]:bg-white/10">
+                Log Aktivitas
+              </TabsTrigger>
+            </TabsList>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <TaskFiltersBar
+                filters={filters}
+                onFiltersChange={setFilters}
+                members={members}
+              />
+            </motion.div>
+          </div>
 
-        {/* Kanban Board */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          <KanbanBoard
-            tasks={tasks}
-            projectId={projectId}
-            members={members}
-            isLoading={tasksLoading}
-            filters={filters}
-          />
-        </motion.div>
+          <TabsContent value="kanban" className="m-0 border-none outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <KanbanBoard
+                tasks={tasks}
+                projectId={projectId}
+                members={members}
+                isLoading={tasksLoading}
+                filters={filters}
+                currentUserId={currentUser?.id}
+              />
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="activity" className="m-0 border-none outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="bg-black/20 border border-white/5 rounded-2xl p-6 glass-solid"
+            >
+              <h2 className="text-sm font-medium mb-6 text-muted-foreground">Log Aktivitas Timeline</h2>
+              <ActivityTimeline projectId={projectId} />
+            </motion.div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

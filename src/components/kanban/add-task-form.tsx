@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import {
   Select,
   SelectContent,
@@ -88,12 +88,11 @@ export function AddTaskForm({ projectId, members }: AddTaskFormProps) {
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSubmit()}
             />
-            <Textarea
-              placeholder="Deskripsi singkat (opsional)..."
+            <MarkdownEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-white/5 border-white/10 rounded-xl resize-none text-sm"
-              rows={2}
+              onChange={setDescription}
+              placeholder="Deskripsi tugas (opsional)..."
+              minHeight="min-h-[100px]"
             />
             <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-9 text-sm">

@@ -13,6 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AddTaskForm } from "./add-task-form";
 import { TaskDetailDialog } from "./task-detail-dialog";
 import { useUpdateTask } from "@/hooks/use-tasks";
+import { useTaskDependencies } from "@/hooks/use-dependencies";
+import { toast } from "sonner";
 import type { TaskWithAssignee, TaskStatus, Profile } from "@/lib/types";
 import type { TaskFilters } from "./task-filters";
 
@@ -22,6 +24,7 @@ interface KanbanBoardProps {
   members: { profile?: Profile | null }[];
   isLoading: boolean;
   filters?: TaskFilters;
+  currentUserId?: string;
 }
 
 const COLUMNS: { id: TaskStatus; label: string; color: string; icon: string }[] = [
@@ -30,10 +33,11 @@ const COLUMNS: { id: TaskStatus; label: string; color: string; icon: string }[] 
   { id: "done", label: "Selesai", color: "from-emerald-500/20 to-emerald-600/20", icon: "✅" },
 ];
 
-export function KanbanBoard({ tasks, projectId, members, isLoading, filters }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, projectId, members, isLoading, filters, currentUserId }: KanbanBoardProps) {
   const [selectedTask, setSelectedTask] = useState<TaskWithAssignee | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const updateTask = useUpdateTask();
+  const { data: dependencies = [] } = useTaskDependencies(projectId);
 
   const getColumnTasks = useCallback(
     (status: TaskStatus) => {
@@ -80,6 +84,21 @@ export function KanbanBoard({ tasks, projectId, members, isLoading, filters }: K
       const newStatus = destination.droppableId as TaskStatus;
       const task = tasks.find((t) => t.id === draggableId);
       if (!task) return;
+
+      // Check if user is trying to move someone else's task
+      if (task.assigned_to && task.assigned_to !== currentUserId && newStatus !== task.status) {
+        toast.error("Hanya anggota yang ditugaskan yang dapat memindahkan tugas ini.");
+        return;
+      }
+
+      // Check for dependencies
+      const taskDependencies = dependencies.filter(d => d.task_id === draggableId);
+      const isBlocked = taskDependencies.some(d => d.blocking_task && d.blocking_task.status !== 'done');
+      
+      if (isBlocked && newStatus !== 'todo') {
+        toast.error("Tugas diblokir! Selesaikan tugas yang menjadi syarat terlebih dahulu.");
+        return;
+      }
 
       const destTasks = getColumnTasks(newStatus).filter(
         (t) => t.id !== draggableId
@@ -207,7 +226,15 @@ export function KanbanBoard({ tasks, projectId, members, isLoading, filters }: K
                                 )}
 
                                 {/* Footer */}
-                                <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/5">
+                                <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-white/5">
+                                  {/* Task Blocked Badge */}
+                                  {dependencies.some(d => d.task_id === task.id && d.blocking_task && d.blocking_task.status !== 'done') && (
+                                    <Badge variant="outline" className="border-red-500/30 text-red-500 bg-red-500/10 text-[9px] px-1.5 py-0 h-4" title="Tugas ini menunggu tugas lain selesai">
+                                      🔒 Blokir
+                                    </Badge>
+                                  )}
+                                  
+                                  <div className="flex-1" />
                                   {task.assignee ? (
                                     <div className="flex items-center gap-1.5">
                                       <Avatar className="w-5 h-5">
@@ -261,6 +288,7 @@ export function KanbanBoard({ tasks, projectId, members, isLoading, filters }: K
         }}
         projectId={projectId}
         members={members}
+        currentUserId={currentUserId}
       />
     </>
   );

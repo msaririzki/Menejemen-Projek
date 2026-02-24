@@ -17,6 +17,7 @@ import { ProjectCard } from "@/components/project-card";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
 import { useProjects } from "@/hooks/use-projects";
 import { useCurrentUser } from "@/hooks/use-members";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 
 export default function DashboardPage() {
@@ -68,6 +69,8 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">Buat Projek</span>
               </Button>
             </CreateProjectDialog>
+
+            <ThemeToggle />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

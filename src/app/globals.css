@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -229,4 +230,21 @@
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== Marquee Text ===== */
+.marquee-container {
+  container-type: inline-size;
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(100cqi); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee-scroll {
+  animation: marquee-scroll 25s linear infinite;
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
 }
