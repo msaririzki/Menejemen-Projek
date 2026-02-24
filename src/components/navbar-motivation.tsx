@@ -10,7 +10,7 @@ const QUOTES = [
   "Kamu hebat hari ini. Lanjutkan kerjamu!",
   "Jangan lupa bernapas, error ini pasti ketemu jalan keluarnya.",
   "Satu commit demi satu commit, jadilah projek yang besar.",
-  "Tetap semangat! Projek ini bakalan keren mampus.",
+  "Tetap semangat! Projek ini bakalan keren banget anjay.",
   "Eror bukan akhir dunia, cuma ngajak kamu berpikir lebih kreatif.",
   "Coding itu seni, kamu adalah senimannya.",
   "Selesaikan satu per satu, jangan buru-buru.",
